@@ -1,0 +1,20 @@
+# Steam Review Intelligence — dependencies
+# Install:  pip install -r requirements.txt
+
+# --- Pipeline: fetching + data handling ---
+requests        # HTTP calls to Steam's public APIs
+pandas          # tabular data (DataFrames)
+pyarrow         # Parquet read/write engine (typed, compressed storage)
+
+# --- Validation: the data contract ---
+pandera         # declarative DataFrame schemas (assert invariants on cleaned data)
+
+# --- Testing ---
+pytest          # unit tests, run alongside each module
+
+# --- Analysis (added when we build the notebooks) ---
+# jupyter        # notebook environment
+# matplotlib     # plotting
+# seaborn        # statistical charts on top of matplotlib
+# scipy          # statistical tests (e.g. Mann-Whitney U)
+# scikit-learn   # logistic regression, KMeans (Phase 2 light ML)

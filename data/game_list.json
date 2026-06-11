@@ -1,0 +1,487 @@
+{
+  "metadata": {
+    "description": "Curated game list for Steam Review Intelligence project. Games selected for analytical diversity across genre, price tier, review sentiment, and lifecycle patterns.",
+    "total_games": 50,
+    "price_tiers": {
+      "free": "0 USD",
+      "budget": "1-15 USD",
+      "mid": "16-35 USD",
+      "premium": "36+ USD"
+    },
+    "analytical_tags_legend": {
+      "review_bombed": "Game experienced coordinated spike of negative reviews",
+      "full_recovery": "Game recovered from negative reception over time",
+      "early_access_success": "Early access game that delivered on promises",
+      "early_access_failure": "Early access game that failed or collapsed",
+      "live_service": "Ongoing service with regular content updates",
+      "annual_release": "Part of yearly franchise release cycle",
+      "dlc_heavy": "Significant portion of content sold as DLC",
+      "went_f2p": "Originally paid, later converted to free-to-play",
+      "late_port": "Released significantly later on PC than other platforms",
+      "critical_darling": "Exceptionally high critical reception",
+      "cult_classic": "Niche but passionate playerbase",
+      "goty": "Game of the Year award winner",
+      "microtransactions": "Controversial or significant in-game purchases",
+      "intentionally_bad": "Bugs and absurdity are core design features",
+      "visual_novel": "Text-heavy narrative game with minimal gameplay",
+      "aaa_failure": "High-budget game with poor reception",
+      "legacy_title": "Older title with sustained playerbase",
+      "controversial_dev": "Developer involved in controversy unrelated to game quality",
+      "niche_passionate": "Small but extremely dedicated playerbase"
+    }
+  },
+  "games": [
+    {
+      "app_id": 236850,
+      "name": "Europa Universalis IV",
+      "genre": "Strategy",
+      "price_tier": "premium",
+      "price_usd": 39.99,
+      "tags": ["dlc_heavy", "niche_passionate", "legacy_title"],
+      "include_reason": "DLC-heavy strategy game — tests whether players punish base game for content locked behind paid expansions"
+    },
+    {
+      "app_id": 1086940,
+      "name": "Baldur's Gate 3",
+      "genre": "RPG",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["goty", "critical_darling"],
+      "include_reason": "Near-perfect reception on a premium title — positive anchor for price vs review sentiment analysis"
+    },
+    {
+      "app_id": 262060,
+      "name": "Darkest Dungeon",
+      "genre": "Roguelike",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["indie", "cult_classic", "early_access_success"],
+      "include_reason": "Successful early access indie — difficult game with passionate reviews"
+    },
+    {
+      "app_id": 261550,
+      "name": "Mount & Blade II: Bannerlord",
+      "genre": "Strategy RPG",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["early_access_success"],
+      "include_reason": "Long early access period with evolving reviews — good for temporal review pattern analysis"
+    },
+    {
+      "app_id": 526870,
+      "name": "Satisfactory",
+      "genre": "Simulation",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["early_access_success"],
+      "include_reason": "Early access success story with unusually positive reception throughout development"
+    },
+    {
+      "app_id": 227300,
+      "name": "Euro Truck Simulator 2",
+      "genre": "Simulation",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["niche_passionate", "legacy_title", "dlc_heavy"],
+      "include_reason": "Niche simulation with extremely dedicated audience — tests how passion affects review length and tone"
+    },
+    {
+      "app_id": 255710,
+      "name": "Cities: Skylines",
+      "genre": "City Builder",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["dlc_heavy", "legacy_title"],
+      "include_reason": "City builder beloved by community despite heavy DLC model"
+    },
+    {
+      "app_id": 374320,
+      "name": "Dark Souls III",
+      "genre": "Action RPG",
+      "price_tier": "premium",
+      "price_usd": 39.99,
+      "tags": ["cult_following", "challenging"],
+      "include_reason": "High-difficulty premium game — tests whether low playtime reviews skew negative due to difficulty wall"
+    },
+    {
+      "app_id": 1245620,
+      "name": "Elden Ring",
+      "genre": "Action RPG",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["goty", "challenging", "critical_darling"],
+      "include_reason": "Same studio as DS3 at higher price — direct comparison for price tier effect on reviews"
+    },
+    {
+      "app_id": 1687950,
+      "name": "Persona 5 Royal",
+      "genre": "RPG",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["late_port", "critical_darling"],
+      "include_reason": "Long PC port of console classic — tests whether late port players review differently than day-one buyers"
+    },
+    {
+      "app_id": 39210,
+      "name": "Final Fantasy XIV Online",
+      "genre": "MMO",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["free_to_play", "live_service", "full_recovery"],
+      "include_reason": "Free trial MMO with full recovery from disastrous 1.0 launch — long temporal arc for recovery analysis"
+    },
+    {
+      "app_id": 377160,
+      "name": "Fallout 4",
+      "genre": "RPG",
+      "price_tier": "mid",
+      "price_usd": 19.99,
+      "tags": ["controversial_reception", "legacy_title", "dlc_heavy"],
+      "include_reason": "Divisive entry in beloved franchise — mixed reviews with strong feelings on both sides"
+    },
+    {
+      "app_id": 719040,
+      "name": "Wasteland 3",
+      "genre": "RPG",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["niche"],
+      "include_reason": "Niche RPG with solid but not spectacular reception — mid-tier baseline"
+    },
+    {
+      "app_id": 1328670,
+      "name": "Mass Effect Legendary Edition",
+      "genre": "RPG",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["legacy_title", "remaster"],
+      "include_reason": "Remaster of beloved trilogy — tests how nostalgia affects review sentiment"
+    },
+    {
+      "app_id": 750920,
+      "name": "Shadow of the Tomb Raider",
+      "genre": "Action Adventure",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["franchise_lowest_rated"],
+      "include_reason": "Lowest-rated entry in a premium franchise trilogy — price punishment for disappointing sequels"
+    },
+    {
+      "app_id": 269650,
+      "name": "Democracy 3",
+      "genre": "Strategy",
+      "price_tier": "budget",
+      "price_usd": 14.99,
+      "tags": ["niche_passionate", "political"],
+      "include_reason": "Niche political sim with unusually thoughtful reviews — tests review depth for intellectual games"
+    },
+    {
+      "app_id": 252950,
+      "name": "Rocket League",
+      "genre": "Sports",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["went_f2p", "live_service", "microtransactions"],
+      "include_reason": "Went F2P mid-lifecycle — reviews split sharply between paid-era and F2P-era players"
+    },
+    {
+      "app_id": 632470,
+      "name": "Disco Elysium",
+      "genre": "RPG",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["critical_darling", "controversial_dev"],
+      "include_reason": "Near-perfect game from a studio that imploded — tests whether dev controversy affects review sentiment over time"
+    },
+    {
+      "app_id": 8870,
+      "name": "BioShock Infinite",
+      "genre": "FPS",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["controversial", "legacy_title", "critical_darling"],
+      "include_reason": "Initially praised then divisively reassessed — tests how review sentiment evolves years after launch"
+    },
+    {
+      "app_id": 1574580,
+      "name": "Tavern Master",
+      "genre": "Simulation",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["small_indie"],
+      "include_reason": "Small indie simulation — baseline for micro-studio reception patterns"
+    },
+    {
+      "app_id": 239030,
+      "name": "Papers, Please",
+      "genre": "Indie",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["indie_classic", "short"],
+      "include_reason": "Short, acclaimed indie — tests review depth when a game is intentionally brief"
+    },
+    {
+      "app_id": 250760,
+      "name": "VVVVVV",
+      "genre": "Platformer",
+      "price_tier": "budget",
+      "price_usd": 4.99,
+      "tags": ["micro_indie", "challenging"],
+      "include_reason": "Micro-priced indie classic — low price tier anchor for price punishment analysis"
+    },
+    {
+      "app_id": 391540,
+      "name": "Undertale",
+      "genre": "RPG",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["cult_classic", "indie_classic"],
+      "include_reason": "Cult indie phenomenon with overwhelmingly positive reviews — tests whether fan passion inflates review scores"
+    },
+    {
+      "app_id": 268910,
+      "name": "Cuphead",
+      "genre": "Platformer",
+      "price_tier": "mid",
+      "price_usd": 19.99,
+      "tags": ["challenging", "critical_darling", "indie"],
+      "include_reason": "Beautiful but brutally difficult indie — tests difficulty wall effect on early-exit reviews"
+    },
+    {
+      "app_id": 550,
+      "name": "Left 4 Dead 2",
+      "genre": "FPS",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["legacy_title", "still_active", "co_op"],
+      "include_reason": "15+ year old game with still-active community — long review timeline across lifecycle stages"
+    },
+    {
+      "app_id": 881100,
+      "name": "Noita",
+      "genre": "Roguelike",
+      "price_tier": "budget",
+      "price_usd": 14.99,
+      "tags": ["cult_following", "complex", "indie"],
+      "include_reason": "Deeply complex roguelike — tests whether complex games attract longer, more analytical reviews"
+    },
+    {
+      "app_id": 238960,
+      "name": "Path of Exile",
+      "genre": "ARPG",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["free_to_play", "live_service", "complex"],
+      "include_reason": "F2P ARPG with seasonal content — tests how live service fatigue shows up in reviews over time"
+    },
+    {
+      "app_id": 620,
+      "name": "Portal 2",
+      "genre": "Puzzle",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["critical_darling", "legacy_title"],
+      "include_reason": "Near-universally beloved game — high positive anchor for review sentiment baseline"
+    },
+    {
+      "app_id": 476060,
+      "name": "A Way Out",
+      "genre": "Co-op",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["co_op_only", "short"],
+      "include_reason": "Co-op only short game — tests whether short playtime reviews differ for designed-to-be-short experiences"
+    },
+    {
+      "app_id": 501300,
+      "name": "What Remains of Edith Finch",
+      "genre": "Narrative",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["walking_sim", "short", "critical_darling"],
+      "include_reason": "2-hour walking sim with critical acclaim — key test case for low playtime vs positive reviews"
+    },
+    {
+      "app_id": 672870,
+      "name": "Warsim: The Realm of Aslona",
+      "genre": "Strategy",
+      "price_tier": "budget",
+      "price_usd": 2.99,
+      "tags": ["micro_indie", "text_based", "niche_passionate"],
+      "include_reason": "Solo-dev text-based strategy at micro price — extreme budget tier anchor"
+    },
+    {
+      "app_id": 1919590,
+      "name": "NBA 2K23",
+      "genre": "Sports",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["annual_release", "microtransactions", "aaa"],
+      "include_reason": "Annual sports release with notorious microtransaction model — tests whether predatory monetization drives review bombing"
+    },
+    {
+      "app_id": 1091500,
+      "name": "Cyberpunk 2077",
+      "genre": "RPG",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["review_bombed", "full_recovery"],
+      "include_reason": "Most dramatic launch failure and full recovery on Steam — essential for temporal review bombing analysis"
+    },
+    {
+      "app_id": 275850,
+      "name": "No Man's Sky",
+      "genre": "Survival",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["review_bombed", "full_recovery"],
+      "include_reason": "Most complete review recovery in Steam history — benchmark for recovery arc analysis alongside Cyberpunk"
+    },
+    {
+      "app_id": 367520,
+      "name": "Hollow Knight",
+      "genre": "Metroidvania",
+      "price_tier": "budget",
+      "price_usd": 14.99,
+      "tags": ["indie_darling", "critical_darling", "challenging"],
+      "include_reason": "Near-perfect indie at budget price — tests whether low price reduces critical threshold for players"
+    },
+    {
+      "app_id": 252490,
+      "name": "Rust",
+      "genre": "Survival",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["toxic_playerbase", "controversial", "live_service"],
+      "include_reason": "Notoriously harsh playerbase — tests whether community culture appears in review tone and language"
+    },
+    {
+      "app_id": 739630,
+      "name": "Phasmophobia",
+      "genre": "Horror",
+      "price_tier": "budget",
+      "price_usd": 13.99,
+      "tags": ["early_access_success", "co_op"],
+      "include_reason": "Solo-dev early access horror success — tests review patterns for unexpectedly successful small games"
+    },
+    {
+      "app_id": 1372880,
+      "name": "The Day Before",
+      "genre": "Survival",
+      "price_tier": "premium",
+      "price_usd": 39.99,
+      "tags": ["early_access_failure", "aaa_failure", "removed_from_store"],
+      "include_reason": "Collapsed 4 days after launch — extreme early_access_failure case. NOTE: removed from Steam store; review API may return limited data.",
+      "data_warning": "Game removed from Steam store Dec 2023. appreviews endpoint may return no data — handle gracefully in fetcher."
+    },
+    {
+      "app_id": 730,
+      "name": "Counter-Strike 2",
+      "genre": "FPS",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["free_to_play", "live_service", "controversial_update", "large_playerbase"],
+      "include_reason": "Replaced CS:GO — massive playerbase split between satisfied and furious players after forced migration"
+    },
+    {
+      "app_id": 1517290,
+      "name": "Battlefield 2042",
+      "genre": "FPS",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["aaa_failure", "review_bombed", "live_service"],
+      "include_reason": "AAA FPS launch failure with sustained negative reception — contrast to Cyberpunk's recovery"
+    },
+    {
+      "app_id": 1294810,
+      "name": "Redfall",
+      "genre": "FPS",
+      "price_tier": "premium",
+      "price_usd": 59.99,
+      "tags": ["aaa_failure"],
+      "include_reason": "Microsoft AAA failure from acclaimed studio — tests whether studio reputation affects review tone"
+    },
+    {
+      "app_id": 1265780,
+      "name": "The Lord of the Rings: Gollum",
+      "genre": "Adventure",
+      "price_tier": "mid",
+      "price_usd": 29.99,
+      "tags": ["aaa_failure", "licensed_ip"],
+      "include_reason": "Famously bad licensed AAA game — bad game at mid price, tests price punishment for known failures"
+    },
+    {
+      "app_id": 698780,
+      "name": "Doki Doki Literature Club!",
+      "genre": "Visual Novel",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["free_to_play", "visual_novel", "psychological_horror", "subversive"],
+      "include_reason": "Free VN disguised as dating sim — expectation subversion drives unique review patterns"
+    },
+    {
+      "app_id": 265930,
+      "name": "Goat Simulator",
+      "genre": "Sandbox",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["intentionally_bad", "meme_game", "comedy"],
+      "include_reason": "Intentionally buggy meme game — tests whether humor and self-awareness change how players review bad mechanics"
+    },
+    {
+      "app_id": 233720,
+      "name": "Surgeon Simulator",
+      "genre": "Simulation",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["intentionally_bad", "comedy", "short"],
+      "include_reason": "Intentionally bad physics comedy — pair with Goat Simulator for intentionally-bad game review analysis"
+    },
+    {
+      "app_id": 4000,
+      "name": "Garry's Mod",
+      "genre": "Sandbox",
+      "price_tier": "budget",
+      "price_usd": 9.99,
+      "tags": ["legacy_title", "moddable", "large_playerbase"],
+      "include_reason": "20-year-old sandbox with enormous review volume — long-arc lifecycle analysis and review length patterns"
+    },
+    {
+      "app_id": 553850,
+      "name": "Helldivers 2",
+      "genre": "Shooter",
+      "price_tier": "premium",
+      "price_usd": 39.99,
+      "tags": ["live_service", "review_bombed", "full_recovery"],
+      "include_reason": "Cleanest event-driven review bomb in the list: the May 2024 PSN account-linking requirement triggered a sharp, precisely-dated negative spike that reversed within days when Sony backtracked. Distinct from slow launch-failure bombs — a dated event boundary plus recovery, ideal for the review-bombing detection question."
+    },
+    {
+      "app_id": 2357570,
+      "name": "Overwatch 2",
+      "genre": "Shooter",
+      "price_tier": "free",
+      "price_usd": 0.0,
+      "tags": ["free_to_play", "live_service", "review_bombed", "microtransactions"],
+      "include_reason": "Launched on Steam Aug 2023 to Overwhelmingly Negative — briefly the worst-rated game on Steam ever, over broken PvE promises and monetization, and did NOT recover (contrast to Helldivers 2). Roughly two-thirds of reviews are non-English (Chinese, post-NetEase), making it a key edge case for language-aware NLP in later phases.",
+      "data_warning": "Review corpus is heavily non-English (majority Simplified Chinese). Any naive English-only sentiment work will mis-handle this game — preserve language field and raw text."
+    },
+    {
+      "app_id": 1716740,
+      "name": "Starfield",
+      "genre": "RPG",
+      "price_tier": "premium",
+      "price_usd": 69.99,
+      "tags": ["aaa", "controversial_reception"],
+      "include_reason": "Big-budget Bethesda RPG that launched Very Positive then slowly decayed to Mixed — a gradual-erosion case, neither bomb nor recovery. Contrast to Cyberpunk/No Man's Sky recoveries and BG3's sustained-positive premium anchor. At 69.99 it also extends the premium price range above the prior 59.99 ceiling for the price-punishment question."
+    },
+    {
+      "app_id": 413150,
+      "name": "Stardew Valley",
+      "genre": "Simulation RPG",
+      "price_tier": "budget",
+      "price_usd": 14.99,
+      "tags": ["indie", "critical_darling", "legacy_title"],
+      "include_reason": "Solo-developed (ConcernedApe) farming RPG with ~387K reviews at 98% positive — extreme positive anchor at budget price with massive N, and the micro-studio-success counterweight to the AAA failures. Review volume makes it a strong base for review-length and passion analyses."
+    }
+  ]
+}
