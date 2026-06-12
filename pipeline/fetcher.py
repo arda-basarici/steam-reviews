@@ -197,3 +197,100 @@ def check_identity(app_id: int, expected_name: str) -> GuardResult:
     if ratio >= settings.identity_match_threshold:
         return GuardResult(GUARD_OK, expected_name, actual_name, ratio, data)
     return GuardResult(GUARD_MISMATCH, expected_name, actual_name, ratio, None)
+
+
+# ============================================================================
+# Piece 3 — the pagination loop
+#
+# Walks a game's reviews via Steam's cursor pagination and *yields* them batch
+# by batch. It deliberately does NOT write to disk: producing the stream and
+# persisting it are separate jobs (persistence + the manifest are piece 4). This
+# generator's only concerns are talking to Steam, stopping correctly, and
+# respecting the per-game cap.
+# ============================================================================
+
+
+@dataclass(frozen=True)
+class ReviewBatch:
+    """One page of results from the reviews walk.
+
+    reviews        : the review dicts in this batch (possibly empty)
+    next_cursor    : the cursor that fetches the NEXT batch — the writer records
+                     this in the manifest *after* persisting `reviews`, which is
+                     what makes at-least-once resume work
+    query_summary  : game-level totals (total_positive / total_negative /
+                     total_reviews across all of Steam). Present only on the
+                     first batch, where Steam returns it; None thereafter.
+    """
+
+    reviews: list
+    next_cursor: str | None
+    query_summary: dict | None
+
+
+def _review_params(cursor: str) -> dict:
+    """Build the appreviews query string for a given cursor (from config)."""
+    return {
+        "json": 1,
+        "filter": settings.review_filter,
+        "language": settings.review_language,
+        "purchase_type": settings.purchase_type,
+        "review_type": settings.review_type,
+        "num_per_page": settings.num_per_page,
+        "cursor": cursor,  # requests URL-encodes this for us
+    }
+
+
+def iter_review_batches(app_id: int, start_cursor: str = "*"):
+    """Yield ReviewBatch objects for a game until the walk is complete.
+
+    Start at `start_cursor` ("*" for a fresh game, or a saved cursor to resume).
+    Stops on ANY of:
+      * empty batch     — Steam returned no reviews (incl. the no-data case)
+      * short batch     — fewer than num_per_page, i.e. the last page
+      * repeated cursor — Steam handed back a cursor already used (its loop bug)
+      * cap reached     — effective_reviews_cap reviews have been yielded
+
+    Raises SteamAPIError only if Steam is unreachable (propagated from _get_json).
+    """
+    url = f"{settings.reviews_endpoint}/{app_id}"
+    cap = settings.effective_reviews_cap
+    cursor = start_cursor
+    seen_cursors: set[str] = set()
+    total_yielded = 0
+    first = True
+
+    while total_yielded < cap:
+        # Loop-bug guard: if we've already requested with this cursor, Steam has
+        # cycled us back — stop rather than re-fetch the same pages forever.
+        if cursor in seen_cursors:
+            return
+        seen_cursors.add(cursor)
+
+        payload = _get_json(url, _review_params(cursor))
+        reviews = payload.get("reviews") or []
+        next_cursor = payload.get("cursor")
+        summary = payload.get("query_summary") if first else None
+
+        # Never exceed the cap: trim a batch that would overshoot.
+        remaining = cap - total_yielded
+        if len(reviews) > remaining:
+            reviews = reviews[:remaining]
+
+        # Always emit the first response (it carries query_summary, even when a
+        # game has zero reviews — e.g. The Day Before). Afterwards, only emit
+        # batches that actually contain reviews.
+        if reviews or first:
+            yield ReviewBatch(reviews, next_cursor, summary)
+            total_yielded += len(reviews)
+
+        first = False
+
+        # Stop conditions, checked after emitting.
+        if not reviews:
+            return                                  # empty → end of data
+        if len(reviews) < settings.num_per_page:
+            return                                  # short page → last page
+        if not next_cursor:
+            return                                  # no cursor → cannot continue
+        cursor = next_cursor

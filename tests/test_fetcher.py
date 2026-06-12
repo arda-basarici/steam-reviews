@@ -155,3 +155,88 @@ def test_check_identity_no_data_when_details_missing():
         result = check_identity(1372880, "The Day Before")
     assert result.status == GUARD_NO_DATA
     assert result.data is None
+
+
+# ---------------------------------------------------------------------------
+# Piece 3 — pagination loop
+# ---------------------------------------------------------------------------
+
+from dataclasses import replace
+from pipeline.fetcher import iter_review_batches, ReviewBatch
+
+
+def _rv(i):
+    """A minimal fake review."""
+    return {"recommendationid": str(i)}
+
+
+def _payload(reviews, cursor="next", summary=None):
+    p = {"success": 1, "reviews": reviews, "cursor": cursor}
+    if summary is not None:
+        p["query_summary"] = summary
+    return p
+
+
+def _with_settings(**overrides):
+    """Patch fetcher.settings with a frozen copy carrying overrides."""
+    test_settings = replace(fetcher.settings, **overrides)
+    return patch.object(fetcher, "settings", test_settings)
+
+
+def test_pagination_single_short_batch_stops():
+    pages = [_payload([_rv(1)], cursor="c1", summary={"total_reviews": 1})]
+    with _with_settings(num_per_page=2), \
+         patch.object(fetcher, "_get_json", side_effect=pages) as mock_get:
+        batches = list(iter_review_batches(1))
+    assert len(batches) == 1
+    assert batches[0].query_summary == {"total_reviews": 1}
+    assert mock_get.call_count == 1            # short page -> no second request
+
+
+def test_pagination_multi_batch_and_summary_only_first():
+    pages = [
+        _payload([_rv(1), _rv(2)], cursor="c1", summary={"total_reviews": 3}),
+        _payload([_rv(3)], cursor="c2"),       # short -> last page
+    ]
+    with _with_settings(num_per_page=2), \
+         patch.object(fetcher, "_get_json", side_effect=pages) as mock_get:
+        batches = list(iter_review_batches(1))
+    assert len(batches) == 2
+    assert batches[0].query_summary == {"total_reviews": 3}
+    assert batches[1].query_summary is None     # summary only on first batch
+    assert mock_get.call_count == 2
+
+
+def test_pagination_respects_cap_and_trims():
+    pages = [
+        _payload([_rv(1), _rv(2)], cursor="c1"),
+        _payload([_rv(3), _rv(4)], cursor="c2"),  # cap hits mid-batch -> trim
+    ]
+    with _with_settings(num_per_page=2, sample_mode=True, sample_reviews_per_game=3), \
+         patch.object(fetcher, "_get_json", side_effect=pages) as mock_get:
+        batches = list(iter_review_batches(1))
+    total = sum(len(b.reviews) for b in batches)
+    assert total == 3                           # 2 + trimmed 1
+    assert mock_get.call_count == 2
+
+
+def test_pagination_loop_guard_stops_on_repeated_cursor():
+    # Every response returns the SAME cursor — without the guard this is infinite.
+    full_batch = _payload([_rv(1), _rv(2)], cursor="loop")
+    with _with_settings(num_per_page=2), \
+         patch.object(fetcher, "_get_json", return_value=full_batch) as mock_get:
+        batches = list(iter_review_batches(1))
+    assert mock_get.call_count == 2             # "*" then "loop", then guard fires
+    assert len(batches) == 2
+
+
+def test_pagination_empty_first_batch_yields_summary_then_stops():
+    # The Day Before: no reviews, but query_summary still reports the (zero) count.
+    pages = [{"success": 2, "reviews": [], "query_summary": {"total_reviews": 0}}]
+    with _with_settings(num_per_page=2), \
+         patch.object(fetcher, "_get_json", side_effect=pages) as mock_get:
+        batches = list(iter_review_batches(1))
+    assert len(batches) == 1
+    assert batches[0].reviews == []
+    assert batches[0].query_summary == {"total_reviews": 0}
+    assert mock_get.call_count == 1
