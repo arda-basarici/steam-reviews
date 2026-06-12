@@ -85,6 +85,46 @@ def save_manifest(manifest: dict) -> None:
     atomic_write_json(settings.fetch_manifest_path, manifest)
 
 
+# --- reading raw data back (the inverse of the writers above) ----------------
+# These feed the cleaning stage. They return plain list[dict] — no pandas — so
+# the fetch path stays dependency-light; turning records into tidy DataFrames is
+# the cleaner's job.
+
+def load_raw_reviews() -> list[dict]:
+    """Read every {app_id}_reviews.jsonl back into a flat list of review dicts.
+
+    The review JSON has no app_id inside it, so we parse it from the filename and
+    stamp it onto each record — this is where the foreign key to the metadata
+    table is born. Files are read in sorted order for reproducible runs; blank
+    lines and empty files (a game that fetched zero reviews) are skipped quietly.
+    """
+    records: list[dict] = []
+    for path in sorted(settings.raw_reviews_dir.glob("*_reviews.jsonl")):
+        app_id = int(path.stem.split("_")[0])
+        with open(path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                review = json.loads(line)
+                review["app_id"] = app_id
+                records.append(review)
+    return records
+
+
+def load_raw_metadata() -> list[dict]:
+    """Read every {app_id}_metadata.json back into a list of metadata dicts.
+
+    Each metadata file already carries its own app_id (written by write_metadata),
+    so no filename parsing is needed. Sorted for reproducibility.
+    """
+    records: list[dict] = []
+    for path in sorted(settings.raw_metadata_dir.glob("*_metadata.json")):
+        with open(path, "r", encoding="utf-8") as handle:
+            records.append(json.load(handle))
+    return records
+
+
 # Manifest status vocabulary. storage owns the manifest *file format*, so the set
 # of legal status strings lives here; the orchestrator owns the transitions.
 STATUS_PENDING = "pending"          # not started

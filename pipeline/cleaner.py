@@ -70,13 +70,17 @@ _INT_COLS = [
 _STRING_COLS = ["recommendationid", "steamid", "language", "review"]
 
 
-def clean_reviews(raw: pd.DataFrame) -> pd.DataFrame:
+def clean_reviews(records: list[dict]) -> pd.DataFrame:
     """Flatten, type, and deduplicate raw review records into a tidy DataFrame.
 
-    `raw` is expected to have one row per review, an `app_id` column (added by the
-    loader), and a nested `author` dict column. Review text is never altered.
+    `records` is a list of review dicts (as returned by storage.load_raw_reviews),
+    each carrying an `app_id` and a nested `author` dict. Review text is never
+    altered.
     """
-    df = raw.reset_index(drop=True)
+    if not records:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(records).reset_index(drop=True)
 
     # 1) Flatten the nested `author` dict into selected top-level columns.
     authors = pd.json_normalize(list(df["author"]))
@@ -138,14 +142,15 @@ def _genre_list(appdetails: dict) -> list:
     return [g["description"] for g in appdetails.get("genres", []) or []]
 
 
-def clean_metadata(raw: pd.DataFrame) -> pd.DataFrame:
+def clean_metadata(records: list[dict]) -> pd.DataFrame:
     """Build the game-level table from raw metadata records.
 
-    `raw` has one row per game with an `app_id`, a nested `appdetails` dict, and a
-    nested `query_summary` dict (as saved by storage.write_metadata).
+    `records` is a list of metadata dicts (as returned by storage.load_raw_metadata),
+    each with an `app_id`, a nested `appdetails` dict, and a nested `query_summary`
+    dict.
     """
     rows = []
-    for _, rec in raw.iterrows():
+    for rec in records:
         app = rec.get("appdetails") or {}
         qs = rec.get("query_summary") or {}
         price = app.get("price_overview") or {}        # absent for free games

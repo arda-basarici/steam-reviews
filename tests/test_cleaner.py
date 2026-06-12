@@ -61,7 +61,7 @@ def _raw():
             "author": _author(steamid="76561199000000002", num_games_owned=200),
         },
     ]
-    return pd.DataFrame(rows)
+    return rows
 
 
 def test_cruft_columns_are_dropped():
@@ -166,7 +166,7 @@ def _meta_raw():
                               "total_reviews": 0},
         },
     ]
-    return pd.DataFrame(rows)
+    return rows
 
 
 def test_metadata_cruft_dropped():
