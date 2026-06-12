@@ -18,8 +18,10 @@ validator not yet started.
 
 ```
 game_list.json            (committed, hand-curated — 50 games)
-  → fetcher.py            [BUILT: requests w/ retry+backoff, identity guard]
-                          [PENDING: cursor pagination, checkpoint/resume]
+  → fetcher.py            [BUILT: requests w/ retry+backoff, identity guard,
+                                  cursor pagination generator]
+                          [PENDING: orchestration / resume wiring]
+  → storage.py            [BUILT: atomic writes, JSONL append, manifest, metadata]
   → data/raw/reviews/{app_id}_reviews.jsonl      (gitignored, append-per-batch)
     data/raw/metadata/{app_id}_metadata.json     (gitignored)
     data/raw/fetch_manifest.json                 (progress + audit log)
@@ -67,6 +69,14 @@ These are project-wide choices that don't belong to any single file.
   (N = 50) join only in notebooks. The epistemics (price-tier claims valid at
   review level; game-sample claims hedged to "in our sample") fall out of the
   schema instead of being something to remember.
+- **One global manifest, not one file per game** — at 50 sequential games the
+  per-batch write cost of rewriting all records is negligible (~10 KB, sub-ms),
+  while a global file gives one-read resume, one-glance progress, and a single
+  auditable artifact. Per-game files only win under _concurrent_ writers, which
+  we deliberately don't have (sequential fetch for politeness). Atomic writes
+  already cover the corruption risk that per-game files would otherwise reduce.
+  Forward note: if a later phase parallelizes fetching, per-game files or a small
+  database become the right call.
 
 ## Files
 
@@ -105,10 +115,11 @@ These are project-wide choices that don't belong to any single file.
 ### `pipeline/fetcher.py`
 
 - **Public surface (built so far)**: `SteamAPIError`, `_get_json`, `GuardResult`,
-  `fetch_app_details`, `check_identity`, `_normalize_name`, `_name_similarity`
+  `fetch_app_details`, `check_identity`, `_normalize_name`, `_name_similarity`,
+  `ReviewBatch`, `iter_review_batches`
 - **Purpose**: all Steam API I/O. Polite, robust single requests; per-game identity
-  verification. (Cursor pagination, `query_summary` capture, and checkpoint/resume
-  are the next pieces.)
+  verification; cursor pagination. (Orchestration / resume wiring is the next
+  piece.)
 - **Key methods**: `_get_json()` — one GET with retry/backoff, the single home of
   retry logic; `check_identity()` — name-match guard returning a `GuardResult`
 - **Depends on**: `config.py`, `requests`
@@ -138,6 +149,16 @@ These are project-wide choices that don't belong to any single file.
   brittle — `ELDEN RING`, `DARK SOULS™ III`, curly apostrophes all fail) and a
   looser threshold (risks accepting a different game). `difflib` is stdlib — no
   new dependency
+- Pagination is a _generator_ (`iter_review_batches`), not a list-builder or a
+  self-writer — it streams `ReviewBatch` objects and touches no disk, so
+  persistence is a separate job (storage.py). Streaming is also what makes
+  at-least-once possible: the caller writes each batch before recording its cursor
+- Five independent stop conditions (empty batch, short batch, missing cursor,
+  repeated-cursor loop guard, cap) — Steam can't be trusted to signal "done"
+  cleanly even once
+- `query_summary` captured from the first batch only — same totals repeat on every
+  page; a zero-review game still emits one batch so the summary is recorded
+- Cap trims mid-batch — never overshoot `effective_reviews_cap`, even partially
 
 ### `tests/test_fetcher.py`
 
@@ -153,6 +174,41 @@ These are project-wide choices that don't belong to any single file.
   real delays and backoff
 - Tests assert retry _counts_, not just final outcomes — proves the backoff path
   actually retries (and that permanent errors do not)
+
+### `pipeline/storage.py`
+
+- **Functions**: `atomic_write_json`, `append_reviews`, `write_metadata`,
+  `load_manifest`, `save_manifest`
+- **Purpose**: all disk persistence for the fetcher — kept separate from
+  fetcher.py because writing files is a different job from talking to Steam.
+  Provides safe write primitives; does not decide when/in what order to call them
+- **Depends on**: `config.py`
+- **Depended on by**: orchestration (pending), `tests/test_storage.py`
+
+## Decisions Log
+
+- Separate module from fetcher.py — network I/O and disk I/O are different jobs
+  (acted on the instinct that "saving is another job, maybe another module")
+- `atomic_write_json` writes a temp file then `os.replace` — a torn write is
+  structurally impossible; the manifest (rewritten every batch) can't corrupt
+- JSONL for reviews, append mode — add lines, never rewrite; a crash leaves at
+  most one half-written final line
+- `ensure_ascii=False` everywhere — non-Latin review text (e.g. Overwatch 2's
+  majority-Chinese corpus) is stored as real UTF-8, not escapes
+- Storage provides primitives but not sequencing — the at-least-once order
+  (reviews before cursor) is the orchestrator's responsibility, not storage's
+
+### `tests/test_storage.py`
+
+- **Purpose**: unit tests for storage — real file I/O, confined to pytest's
+  `tmp_path`; `settings` patched to point at the temp directory
+
+## Decisions Log
+
+- Tests touch real files (storage _is_ file I/O) but never the project's data/
+  dirs — paths are redirected to tmp_path via a patched frozen settings copy
+- Asserts the temp file is gone after an atomic write (verifies the mechanism,
+  not just the result) and that non-Latin text survives the round trip
 
 ## Known Bugs
 
