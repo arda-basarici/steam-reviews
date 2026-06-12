@@ -10,25 +10,28 @@ flow and assertions at two distinct boundaries.
 - **Cleaner**: transforms raw JSON → tidy tables (no network access)
 - **Validator**: the data contract — asserts invariants before data is promoted
 
-Status: Phase 2, project 2. Fetcher complete — requests, identity guard,
-pagination, persistence, and orchestration, all unit-tested — and exposed via a
-CLI (main.py). Cleaner and validator not yet started.
+Status: Phase 2, project 2. **Data pipeline complete end-to-end** — fetch → clean
+→ validate → Parquet — all unit-tested and exposed via a CLI (`main.py fetch` /
+`main.py clean`). The first full sample run produced 24,579 cleaned reviews across
+all 50 games. Analysis notebooks are the next stage.
 
 ## Data Flow
 
 ```
 game_list.json            (committed, hand-curated — 50 games)
-  → main.py                CLI: `python main.py fetch [--full]`
+  → main.py                CLI: `python main.py fetch [--full]` | `python main.py clean`
   → orchestrator.py        [BUILT: per-game loop, resume, at-least-once, clean stop]
       ├─ fetcher.py        [BUILT: retry/backoff, identity guard, cursor pagination]
       └─ storage.py        [BUILT: atomic writes, JSONL append, manifest, metadata]
   → data/raw/reviews/{app_id}_reviews.jsonl      (gitignored, append-per-batch)
     data/raw/metadata/{app_id}_metadata.json     (gitignored)
     data/raw/fetch_manifest.json                 (progress + audit log)
-  → cleaner.py            [PENDING] raw → tidy DataFrame, dedup, encoding, features
-  → validation/          [PENDING] assert schema + invariants (the data contract)
+  → storage.load_raw_*()   [BUILT: read raw back as list[dict]; app_id from filename]
+  → cleaner.py             [BUILT: flatten author, coerce dtypes, dedup → two tidy tables]
+  → validation/            [BUILT: pandera schemas + cross-table checks; hard-stop vs warn]
+  → writer.py              [BUILT: atomic Parquet write of the processed tables]
   → data/processed/reviews.parquet + metadata.parquet   (gitignored)
-  → analysis notebooks    [PENDING] read processed only — never touch raw
+  → analysis notebooks     [PENDING] read processed only — never touch raw
 ```
 
 Every arrow goes forward only. Notebooks never reach back to raw. That one rule
@@ -62,6 +65,11 @@ These are project-wide choices that don't belong to any single file.
   (trivially detectable) instead of a corrupted array.
 - **Parquet for processed data** (not CSV) — preserves types, compresses, and reads
   as a production signal.
+- **Heavy deps off the fetch path** — pandas / pyarrow / pandera are imported only
+  in the cleaning stage. Storage's raw loaders return plain `list[dict]`, and
+  `main.py` imports the clean modules lazily inside `_run_clean`. A `fetch` run
+  never loads them, keeping the fetch path lean. The same principle put the Parquet
+  writers in their own module (`writer.py`) instead of in stdlib-only `storage.py`.
 - **Sample mode, default ON** — shallow full-coverage runs (~500 reviews × all 50
   games, ~9 min) for building and testing; one switch flips to the full ~1.5 h
   run. Default-on so a multi-hour fetch is never triggered by accident.
@@ -185,10 +193,12 @@ These are project-wide choices that don't belong to any single file.
 ### `pipeline/storage.py`
 
 - **Functions**: `atomic_write_json`, `append_reviews`, `write_metadata`,
-  `load_manifest`, `save_manifest`
-- **Purpose**: all disk persistence for the fetcher — kept separate from
-  fetcher.py because writing files is a different job from talking to Steam.
-  Provides safe write primitives; does not decide when/in what order to call them
+  `load_manifest`, `save_manifest`, `load_raw_reviews`, `load_raw_metadata`
+- **Purpose**: all RAW-data disk persistence — kept separate from fetcher.py
+  because writing files is a different job from talking to Steam. Stdlib-only (no
+  pandas), so the fetch path stays light. Provides safe write primitives and the
+  inverse readers for the cleaning stage; does not decide when/in what order to
+  call them
 - **Depends on**: `config.py`
 - **Depended on by**: `orchestrator.py`, `tests/test_storage.py`
 
@@ -208,6 +218,11 @@ These are project-wide choices that don't belong to any single file.
   constants — storage owns the manifest format, so the record shape lives here.
   load/save stay typed as plain `dict` so partial test fixtures remain convenient;
   the precise typing is applied where records are _built_ (the orchestrator)
+- `load_raw_reviews` / `load_raw_metadata` return `list[dict]`, not DataFrames —
+  keeps pandas off the fetch path; building tidy frames is the cleaner's job. The
+  review JSON has no `app_id` inside, so the loader parses it from the filename and
+  stamps it on each record: this is where the foreign key to metadata is born.
+  Files are read sorted (reproducible); blank lines and empty files are skipped
 
 ### `tests/test_storage.py`
 
@@ -261,8 +276,10 @@ These are project-wide choices that don't belong to any single file.
 
 ### `main.py`
 
-- **Purpose**: thin CLI entry point — `python main.py fetch [--full]`
-- **Depends on**: `config`, `orchestrator` (imported lazily)
+- **Purpose**: thin CLI entry point — `python main.py fetch [--full]` and
+  `python main.py clean`
+- **Depends on**: `config`, `orchestrator` (fetch) and `storage` / `cleaner` /
+  `validation` / `writer` (clean), all imported lazily
 - **Depended on by**: nothing — top of the dependency tree
 
 ## Decisions Log
@@ -271,7 +288,121 @@ These are project-wide choices that don't belong to any single file.
   to `config.settings` _before_ orchestrator is imported, so the import-time
   `from pipeline.config import settings` bindings pick it up (hence the lazy
   import inside the function)
-- Stays thin — argument parsing only; all real work is in the pipeline package
+- `clean` lazily imports the heavy modules (pandas/pandera/pyarrow) so a `fetch`
+  run never pays for them; the command is load → clean → validate → write, and a
+  hard validation failure aborts with `SystemExit(1)` writing no Parquet
+- Stays thin — argument parsing and orchestration only; all real work is in the
+  pipeline package
+
+### `pipeline/cleaner.py`
+
+- **Functions**: `clean_reviews`, `clean_metadata` (+ `_genre_list`); column-policy
+  constants `KEEP_REVIEW_FIELDS`, `KEEP_AUTHOR_FIELDS`
+- **Purpose**: pure transform — raw records (`list[dict]`) → two tidy DataFrames.
+  No network, no disk, no model assumptions. Flattens the nested `author`, coerces
+  honest dtypes, parses Unix timestamps to UTC, deduplicates, preserves review text
+  byte-for-byte
+- **Depends on**: `pandas`
+- **Depended on by**: `main.py`, `tests/test_cleaner.py`
+
+## Decisions Log
+
+- **Takes records, returns frames** — `clean_*(list[dict]) -> DataFrame`. Building
+  the frame is the cleaner's job (it owns pandas); reading files is storage's. This
+  is what keeps pandas off the fetch path
+- **Column policy: keep generously, drop only pure cruft** — every field with any
+  plausible analytic value to _anyone_ (not just our five questions) is kept;
+  only identity/UI cruft (avatar hash, profile_url, persona_status, personaname,
+  store-page HTML/images/requirements) is dropped. Nothing is truly lost: raw JSONL
+  is immutable, so a different analyst can re-clean with a different list. The
+  kept/dropped lists are explicit, named constants with rationale — curation, not
+  carelessness. Dropping personaname/avatar also reduces personal data in the
+  shareable artifact
+- **Identifiers kept as strings** — `steamid` and `recommendationid` are 17-digit
+  ids that would lose precision as float64; they are identifiers, not quantities
+- **Nullable dtypes** (`Int64`, `boolean`, `string`) — survive into Parquet and
+  represent missing values honestly, which plain `int`/`bool` cannot
+- **Review text is never altered** — `\r\n`, ASCII art, and non-Latin scripts pass
+  through untouched; the cleaner shapes structure, not content (keeps Phase 3/4 NLP
+  open)
+- **`genres` kept as a list** `["Action", "RPG"]`, not exploded or string-joined —
+  faithful to the multi-valued structure, native to Parquet's `list<string>` type,
+  explodable on demand in a notebook. Exploding would shatter the metadata table's
+  one-row-per-game grain; a joined string would force re-parsing
+- **Two tables, joined on `app_id` in notebooks** — reviews stay strictly
+  review-level; game-level facts are not denormalized onto each review (one grain,
+  one source of truth, no 24k stale copies of a corrected price)
+- **`query_summary` totals live in the metadata row** — they are whole-population
+  counts (e.g. 1,037,403 for L4D2), the denominators for per-game sentiment and
+  review-bombing rates, distinct from our 500-review _sample_
+
+### `validation/` (`schemas.py`, `validate.py`)
+
+- **Public surface**: `validate(reviews, metadata)`, `ValidationError`,
+  `ValidationReport`; pandera schemas `REVIEWS_STRUCTURE/RANGES`,
+  `METADATA_STRUCTURE/RANGES`
+- **Purpose**: the data contract — the gate between cleaning and Parquet. Asserts
+  invariants and decides whether the cleaned tables may be promoted
+- **Depends on**: `pandas`, `pandera>=0.30` (pandas-3.x support), `pipeline.config`
+- **Depended on by**: `main.py`, `tests/test_validation.py`
+
+## Decisions Log
+
+- **Hard-stop vs warn** — structural/key violations _raise_ and write nothing
+  (missing column, duplicate `recommendationid`, broken referential integrity,
+  empty table): these would silently corrupt analysis. Soft range oddities only
+  _warn_ (score just outside [0,1], future-looking timestamp, Steam's own totals
+  disagreeing): unusual but not impossible, and the first weird-but-real value
+  shouldn't block 24k good rows. Test: "would a downstream analysis be silently
+  corrupted?" → raise; "is this just an outlier to surface?" → warn
+- **Collect all, then decide** — every violation is gathered into one
+  `ValidationReport` before raising, not fail-fast; no fix-one-rerun loop
+- **Pandera for the schema layer, plain Python for cross-table** — declarative
+  schemas read like a spec for per-column presence/nullability/uniqueness/ranges;
+  referential integrity, row counts, and the pos+neg≤total check span both frames,
+  so they live in `validate.py` as explicit Python
+- **pandera imported lazily** — only inside the schema runner / `validate`, so
+  importing the package doesn't require pandera and the cross-table logic stays
+  testable without it
+- **Dtypes intentionally not asserted** — the cleaner already coerces them, and
+  pinning exact nullable/arrow dtype strings is brittle across versions; the
+  contract focuses on presence, keys, and value ranges
+
+### `pipeline/writer.py`
+
+- **Functions**: `write_processed_reviews`, `write_processed_metadata`,
+  `write_processed` (+ `_atomic_write`)
+- **Purpose**: the PROCESSED-data disk layer — atomic Parquet writes of the two
+  cleaned tables. Separate from stdlib-only `storage.py` because it needs
+  pandas/pyarrow and only the clean path uses it
+- **Depends on**: `pandas` (+ `pyarrow` engine), `pipeline.config`
+- **Depended on by**: `main.py`, `tests/test_writer.py`
+
+## Decisions Log
+
+- **Atomic write** (temp file + `os.replace`) — same crash-safety storage uses for
+  JSON; a reader sees the old Parquet or the complete new one, never a torn file
+- **Serialization separated from the atomic move** — `_atomic_write(path, write_fn)`
+  takes the serializer as a callback, so the rename/crash-safety logic is testable
+  without pyarrow and any format could reuse it
+- **Tests split by dependency** — atomic-write tests use a fake serializer (run
+  anywhere); Parquet round-trip tests (incl. the `genres` list column surviving)
+  require pyarrow
+
+## Data Facts (first full sample run)
+
+What the real cleaned data actually is, recorded for the analysis stage:
+
+- **24,579 reviews across all 50 games**, 23 columns; **50 games**, 21 columns of
+  metadata. (Just under the 50×500 = 25,000 ceiling: dedup removed resume
+  duplicates and a few small games have <500 total reviews, e.g. Cuphead at 79.)
+- **The corpus is multilingual — under half is English**: english ~11,700 (~48%),
+  then russian ~3,200, schinese ~2,700, spanish ~1,400, brazilian ~1,200, and a
+  long tail. Validates `language=all` and `ensure_ascii=False`; makes the Phase 4
+  NLP genuinely multilingual.
+- **The contract passed clean** on the real data — zero hard failures and zero
+  warnings: dedup held (`recommendationid` unique), every review's `app_id` matched
+  a metadata row, and Steam's sentiment totals were self-consistent.
 
 ## Known Bugs
 
