@@ -10,18 +10,18 @@ flow and assertions at two distinct boundaries.
 - **Cleaner**: transforms raw JSON → tidy tables (no network access)
 - **Validator**: the data contract — asserts invariants before data is promoted
 
-Status: Phase 2, project 2. Fetcher in progress (request layer + identity guard
-built; pagination, checkpointing, and orchestration pending). Cleaner and
-validator not yet started.
+Status: Phase 2, project 2. Fetcher complete — requests, identity guard,
+pagination, persistence, and orchestration, all unit-tested — and exposed via a
+CLI (main.py). Cleaner and validator not yet started.
 
 ## Data Flow
 
 ```
 game_list.json            (committed, hand-curated — 50 games)
-  → fetcher.py            [BUILT: requests w/ retry+backoff, identity guard,
-                                  cursor pagination generator]
-                          [PENDING: orchestration / resume wiring]
-  → storage.py            [BUILT: atomic writes, JSONL append, manifest, metadata]
+  → main.py                CLI: `python main.py fetch [--full]`
+  → orchestrator.py        [BUILT: per-game loop, resume, at-least-once, clean stop]
+      ├─ fetcher.py        [BUILT: retry/backoff, identity guard, cursor pagination]
+      └─ storage.py        [BUILT: atomic writes, JSONL append, manifest, metadata]
   → data/raw/reviews/{app_id}_reviews.jsonl      (gitignored, append-per-batch)
     data/raw/metadata/{app_id}_metadata.json     (gitignored)
     data/raw/fetch_manifest.json                 (progress + audit log)
@@ -123,7 +123,7 @@ These are project-wide choices that don't belong to any single file.
 - **Key methods**: `_get_json()` — one GET with retry/backoff, the single home of
   retry logic; `check_identity()` — name-match guard returning a `GuardResult`
 - **Depends on**: `config.py`, `requests`
-- **Depended on by**: `main.py` (pending), `tests/test_fetcher.py`
+- **Depended on by**: `orchestrator.py`, `tests/test_fetcher.py`
 
 ## Decisions Log
 
@@ -159,6 +159,13 @@ These are project-wide choices that don't belong to any single file.
 - `query_summary` captured from the first batch only — same totals repeat on every
   page; a zero-review game still emits one batch so the summary is recorded
 - Cap trims mid-batch — never overshoot `effective_reviews_cap`, even partially
+- Edition-drift tolerance (added after the first real fetch): the guard also
+  accepts when the expected name is a clean leading _token-prefix_ of the store
+  name (store = our name + extra words), e.g. "Disco Elysium" →
+  "Disco Elysium - The Final Cut". Requires ≥2 expected tokens so a short name
+  can't latch onto a different longer-named game. Chosen over editing names in
+  game_list (which would make the data lie and not generalize) and over lowering
+  the threshold (which would weaken wrong-game detection)
 
 ### `tests/test_fetcher.py`
 
@@ -183,7 +190,7 @@ These are project-wide choices that don't belong to any single file.
   fetcher.py because writing files is a different job from talking to Steam.
   Provides safe write primitives; does not decide when/in what order to call them
 - **Depends on**: `config.py`
-- **Depended on by**: orchestration (pending), `tests/test_storage.py`
+- **Depended on by**: `orchestrator.py`, `tests/test_storage.py`
 
 ## Decisions Log
 
@@ -197,6 +204,10 @@ These are project-wide choices that don't belong to any single file.
   majority-Chinese corpus) is stored as real UTF-8, not escapes
 - Storage provides primitives but not sequencing — the at-least-once order
   (reviews before cursor) is the orchestrator's responsibility, not storage's
+- `GameRecord` (TypedDict) documents the manifest record schema beside the status
+  constants — storage owns the manifest format, so the record shape lives here.
+  load/save stay typed as plain `dict` so partial test fixtures remain convenient;
+  the precise typing is applied where records are _built_ (the orchestrator)
 
 ### `tests/test_storage.py`
 
@@ -210,6 +221,73 @@ These are project-wide choices that don't belong to any single file.
 - Asserts the temp file is gone after an atomic write (verifies the mechanism,
   not just the result) and that non-Latin text survives the round trip
 
+### `pipeline/orchestrator.py`
+
+- **Functions**: `fetch_game`, `run_fetch`, `load_game_list`, `_summarize`, `_now`
+- **Purpose**: the fetch conductor — ties the guard, the pagination stream, and
+  storage into one resumable run. Owns the _sequencing_ the lower layers don't:
+  at-least-once writes, resume from the manifest, and stopping cleanly when Steam
+  is unreachable
+- **Depends on**: `fetcher`, `storage`, `config`
+- **Depended on by**: `main.py`, `tests/test_orchestrator.py`
+
+## Decisions Log
+
+- At-least-once made concrete: `append_reviews` (disk) precedes `save_manifest`
+  (cursor) for every batch — a crash duplicates one batch, never loses one
+- `current` manifest record is mutated in place — it is the same object stored in
+  the manifest, so save_manifest persists it; also keeps the type checker happy
+  (no `{**record}` unpack of a possibly-None value)
+- Resume trusts the recorded guard result — an in_progress game is not re-guarded
+  and its metadata is not rewritten; it continues from `last_cursor`
+- Metadata written iff `appdetails_data and query_summary` are both present —
+  one condition cleanly covers fresh-first-batch (write) and resume (skip)
+- Skip branches (`mismatch`, `no_data`) never call the pagination loop — no
+  request is wasted on a game that failed identity
+- Only `SteamAPIError` is caught at the top (clean, resumable stop); any other
+  exception propagates as a real bug to fix
+- Sample-mode banner printed at run start — a sample run can never be mistaken
+  for the real thing
+
+### `tests/test_orchestrator.py`
+
+- **Purpose**: unit tests for the conductor — every lower layer mocked; verifies
+  branching and ordering, not real I/O
+
+## Decisions Log
+
+- Asserts a `save` follows every `append` (proves at-least-once order) and that
+  resume passes the saved cursor into `iter_review_batches` without re-guarding
+
+### `main.py`
+
+- **Purpose**: thin CLI entry point — `python main.py fetch [--full]`
+- **Depends on**: `config`, `orchestrator` (imported lazily)
+- **Depended on by**: nothing — top of the dependency tree
+
+## Decisions Log
+
+- `--full` overrides the safe `sample_mode=True` default; the override is applied
+  to `config.settings` _before_ orchestrator is imported, so the import-time
+  `from pipeline.config import settings` bindings pick it up (hence the lazy
+  import inside the function)
+- Stays thin — argument parsing only; all real work is in the pipeline package
+
 ## Known Bugs
 
-None currently.
+### Wrong app_ids in game_list.json caught by the identity guard (fixed)
+
+The first sample fetch skipped 7 of 50 games. The guard's manifest log showed two
+causes:
+
+- **Five wrong app_ids** — the id pointed at an entirely different game:
+  Democracy 3 → "Dex", VVVVVV → "Shovel Knight", Tavern Master → "Strange
+  Horticulture", Warsim → "ScreenPlay", A Way Out → (no storefront entry). All
+  five had low guard ratios (≤0.29) or no_data. Fixed by correcting the ids in
+  game_list.json (245470, 70300, 1525700, 659540, 1222700), each verified against
+  the live store. The manual pre-fetch verification only checked four ids; the
+  guard caught these five automatically — exactly its purpose.
+- **Two edition-drift false-skips** — right game, longer store name (Disco Elysium
+  → "...- The Final Cut", Shadow of the Tomb Raider → "...: Definitive Edition"),
+  ratios 0.65–0.72. Fixed in code via the edition-prefix rule (see fetcher
+  Decisions Log), not by editing the data.

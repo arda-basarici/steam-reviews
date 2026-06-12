@@ -240,3 +240,47 @@ def test_pagination_empty_first_batch_yields_summary_then_stops():
     assert batches[0].reviews == []
     assert batches[0].query_summary == {"total_reviews": 0}
     assert mock_get.call_count == 1
+
+
+# ---------------------------------------------------------------------------
+# Piece 2b — edition-drift tolerance (added after the first real fetch)
+# ---------------------------------------------------------------------------
+
+from pipeline.fetcher import _is_edition_of
+
+
+def test_edition_prefix_accepts_real_edition_suffixes():
+    assert _is_edition_of("Disco Elysium", "Disco Elysium - The Final Cut")
+    assert _is_edition_of("Shadow of the Tomb Raider",
+                          "Shadow of the Tomb Raider: Definitive Edition")
+
+
+def test_edition_prefix_rejects_wrong_games():
+    # The five wrong-id cases caught in the first fetch must NOT slip through.
+    assert not _is_edition_of("Democracy 3", "Dex")
+    assert not _is_edition_of("VVVVVV", "Shovel Knight: Treasure Trove")
+    assert not _is_edition_of("Tavern Master", "Strange Horticulture")
+    assert not _is_edition_of("Warsim: The Realm of Aslona", "ScreenPlay")
+
+
+def test_edition_prefix_requires_two_tokens_to_avoid_short_name_false_match():
+    # A single-token expected name must not latch onto a different longer game.
+    assert not _is_edition_of("Rust", "Rust Buster")
+    assert not _is_edition_of("Portal", "Portal Knights")
+
+
+def test_check_identity_accepts_edition_via_prefix_even_below_threshold():
+    data = {"name": "Disco Elysium - The Final Cut"}
+    with patch.object(fetcher, "fetch_app_details", return_value=data):
+        result = check_identity(632470, "Disco Elysium")
+    assert result.status == GUARD_OK
+    assert result.ratio is not None
+    assert result.ratio < 0.85          # passed by prefix, not by ratio
+    assert result.data == data
+
+
+def test_check_identity_still_rejects_wrong_game():
+    data = {"name": "Dex"}
+    with patch.object(fetcher, "fetch_app_details", return_value=data):
+        result = check_identity(269650, "Democracy 3")
+    assert result.status == GUARD_MISMATCH

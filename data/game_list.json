@@ -167,7 +167,7 @@
       "include_reason": "Lowest-rated entry in a premium franchise trilogy — price punishment for disappointing sequels"
     },
     {
-      "app_id": 269650,
+      "app_id": 245470,
       "name": "Democracy 3",
       "genre": "Strategy",
       "price_tier": "budget",
@@ -203,7 +203,7 @@
       "include_reason": "Initially praised then divisively reassessed — tests how review sentiment evolves years after launch"
     },
     {
-      "app_id": 1574580,
+      "app_id": 1525700,
       "name": "Tavern Master",
       "genre": "Simulation",
       "price_tier": "budget",
@@ -221,7 +221,7 @@
       "include_reason": "Short, acclaimed indie — tests review depth when a game is intentionally brief"
     },
     {
-      "app_id": 250760,
+      "app_id": 70300,
       "name": "VVVVVV",
       "genre": "Platformer",
       "price_tier": "budget",
@@ -284,7 +284,7 @@
       "include_reason": "Near-universally beloved game — high positive anchor for review sentiment baseline"
     },
     {
-      "app_id": 476060,
+      "app_id": 1222700,
       "name": "A Way Out",
       "genre": "Co-op",
       "price_tier": "mid",
@@ -302,7 +302,7 @@
       "include_reason": "2-hour walking sim with critical acclaim — key test case for low playtime vs positive reviews"
     },
     {
-      "app_id": 672870,
+      "app_id": 659540,
       "name": "Warsim: The Realm of Aslona",
       "genre": "Strategy",
       "price_tier": "budget",
@@ -380,7 +380,12 @@
       "genre": "FPS",
       "price_tier": "free",
       "price_usd": 0.0,
-      "tags": ["free_to_play", "live_service", "controversial_update", "large_playerbase"],
+      "tags": [
+        "free_to_play",
+        "live_service",
+        "controversial_update",
+        "large_playerbase"
+      ],
       "include_reason": "Replaced CS:GO — massive playerbase split between satisfied and furious players after forced migration"
     },
     {
@@ -416,7 +421,12 @@
       "genre": "Visual Novel",
       "price_tier": "free",
       "price_usd": 0.0,
-      "tags": ["free_to_play", "visual_novel", "psychological_horror", "subversive"],
+      "tags": [
+        "free_to_play",
+        "visual_novel",
+        "psychological_horror",
+        "subversive"
+      ],
       "include_reason": "Free VN disguised as dating sim — expectation subversion drives unique review patterns"
     },
     {
@@ -461,7 +471,12 @@
       "genre": "Shooter",
       "price_tier": "free",
       "price_usd": 0.0,
-      "tags": ["free_to_play", "live_service", "review_bombed", "microtransactions"],
+      "tags": [
+        "free_to_play",
+        "live_service",
+        "review_bombed",
+        "microtransactions"
+      ],
       "include_reason": "Launched on Steam Aug 2023 to Overwhelmingly Negative — briefly the worst-rated game on Steam ever, over broken PvE promises and monetization, and did NOT recover (contrast to Helldivers 2). Roughly two-thirds of reviews are non-English (Chinese, post-NetEase), making it a key edge case for language-aware NLP in later phases.",
       "data_warning": "Review corpus is heavily non-English (majority Simplified Chinese). Any naive English-only sentiment work will mis-handle this game — preserve language field and raw text."
     },

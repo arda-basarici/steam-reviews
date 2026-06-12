@@ -159,6 +159,24 @@ def _name_similarity(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, _normalize_name(a), _normalize_name(b)).ratio()
 
 
+def _is_edition_of(expected: str, actual: str) -> bool:
+    """True if `actual` is `expected` plus a trailing edition/subtitle.
+
+    Steam often stores a longer name than ours — "Disco Elysium" becomes
+    "Disco Elysium - The Final Cut", "Shadow of the Tomb Raider" becomes
+    "...: Definitive Edition". In every such case our expected name is a clean
+    leading *token* prefix of the store name (store = our name + extra words).
+
+    Guard against false matches: we require expected to be at least two tokens, so
+    a short/generic name can't latch onto a different, longer-named game. (A wrong
+    game like "Dex" or "Shovel Knight: Treasure Trove" is not a token-prefix of
+    our expected name, so it never reaches GUARD_OK this way.)
+    """
+    e = _normalize_name(expected).split()
+    a = _normalize_name(actual).split()
+    return len(e) >= 2 and len(a) > len(e) and a[: len(e)] == e
+
+
 def fetch_app_details(app_id: int) -> dict | None:
     """Fetch the storefront 'data' block for an app_id.
 
@@ -194,7 +212,7 @@ def check_identity(app_id: int, expected_name: str) -> GuardResult:
 
     actual_name = data.get("name", "")
     ratio = _name_similarity(expected_name, actual_name)
-    if ratio >= settings.identity_match_threshold:
+    if ratio >= settings.identity_match_threshold or _is_edition_of(expected_name, actual_name):
         return GuardResult(GUARD_OK, expected_name, actual_name, ratio, data)
     return GuardResult(GUARD_MISMATCH, expected_name, actual_name, ratio, None)
 
