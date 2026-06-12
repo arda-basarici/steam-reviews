@@ -7,7 +7,7 @@ pandas          # tabular data (DataFrames)
 pyarrow         # Parquet read/write engine (typed, compressed storage)
 
 # --- Validation: the data contract ---
-pandera         # declarative DataFrame schemas (assert invariants on cleaned data)
+pandera>=0.30   # declarative DataFrame schemas; >=0.30 supports pandas 3.x
 
 # --- Testing ---
 pytest          # unit tests, run alongside each module
