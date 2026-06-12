@@ -79,7 +79,7 @@ def clean_reviews(raw: pd.DataFrame) -> pd.DataFrame:
     df = raw.reset_index(drop=True)
 
     # 1) Flatten the nested `author` dict into selected top-level columns.
-    authors = authors = pd.json_normalize(list(df["author"]))
+    authors = pd.json_normalize(list(df["author"]))
     for field in KEEP_AUTHOR_FIELDS:
         df[field] = authors[field] if field in authors.columns else pd.NA
 
@@ -110,5 +110,98 @@ def clean_reviews(raw: pd.DataFrame) -> pd.DataFrame:
     for col in _STRING_COLS:
         if col in df.columns:
             df[col] = df[col].astype("string")
+
+    return df.reset_index(drop=True)
+
+
+# =============================================================================
+# Game-level metadata (one row per game, ~50 rows)
+# =============================================================================
+# Same column philosophy as reviews: keep analytic value, drop store-page cruft
+# (HTML descriptions, image URLs, OS requirements, screenshots, per-country
+# ratings, package groups) — all recoverable from the immutable raw JSON.
+#
+# Two grains live in one raw file and we keep them in one game-level row:
+#   - `appdetails`     : the store listing (name, price, genres, release, ...)
+#   - `query_summary`  : WHOLE-POPULATION review totals (e.g. 1,037,403 for L4D2),
+#                        NOT our 500-row sample. These are the denominators for
+#                        per-game sentiment and review-bombing rates.
+
+
+def _genre_list(appdetails: dict) -> list:
+    """genres is [{'id','description'}, ...] -> ['Action', 'RPG']; [] if absent.
+
+    Kept as a list (not a joined string): faithful to the multi-valued structure,
+    natively supported by Parquet's list<string> type, and explodable on demand
+    in a notebook. Empty list (never None) so downstream code needn't special-case.
+    """
+    return [g["description"] for g in appdetails.get("genres", []) or []]
+
+
+def clean_metadata(raw: pd.DataFrame) -> pd.DataFrame:
+    """Build the game-level table from raw metadata records.
+
+    `raw` has one row per game with an `app_id`, a nested `appdetails` dict, and a
+    nested `query_summary` dict (as saved by storage.write_metadata).
+    """
+    rows = []
+    for _, rec in raw.iterrows():
+        app = rec.get("appdetails") or {}
+        qs = rec.get("query_summary") or {}
+        price = app.get("price_overview") or {}        # absent for free games
+        release = app.get("release_date") or {}
+        metacritic = app.get("metacritic") or {}
+        recommendations = app.get("recommendations") or {}
+        platforms = app.get("platforms") or {}
+
+        price_final = price.get("final")
+        price_initial = price.get("initial")
+
+        rows.append({
+            "app_id": rec.get("app_id"),
+            "name": app.get("name"),
+            "type": app.get("type"),
+            "is_free": app.get("is_free"),
+            "required_age": app.get("required_age"),
+            # price: keep the live (fetch-time) price in dollars; None when free.
+            "price_final_usd": price_final / 100 if price_final is not None else None,
+            "price_initial_usd": price_initial / 100 if price_initial is not None else None,
+            "discount_percent": price.get("discount_percent"),
+            "genres": _genre_list(app),
+            "release_date_raw": release.get("date"),     # e.g. "Nov 16, 2009"
+            "coming_soon": release.get("coming_soon"),
+            "metacritic_score": metacritic.get("score"),         # absent for many
+            "recommendations_total": recommendations.get("total"),
+            "platform_windows": platforms.get("windows"),
+            "platform_mac": platforms.get("mac"),
+            "platform_linux": platforms.get("linux"),
+            # whole-population review totals (the denominators):
+            "total_positive": qs.get("total_positive"),
+            "total_negative": qs.get("total_negative"),
+            "total_reviews": qs.get("total_reviews"),
+            "review_score": qs.get("review_score"),
+            "review_score_desc": qs.get("review_score_desc"),
+        })
+
+    df = pd.DataFrame(rows)
+
+    # dtypes — tolerant of the real gaps (free games, missing metacritic, vague
+    # release dates). errors='coerce' turns the unparseable into NA, not crashes.
+    df["release_date"] = pd.to_datetime(df["release_date_raw"], errors="coerce")
+    df = df.drop(columns=["release_date_raw"])
+
+    int_cols = [
+        "app_id", "required_age", "discount_percent", "metacritic_score",
+        "recommendations_total", "total_positive", "total_negative",
+        "total_reviews", "review_score",
+    ]
+    for col in int_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+    for col in ["price_final_usd", "price_initial_usd"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    for col in ["is_free", "coming_soon", "platform_windows", "platform_mac", "platform_linux"]:
+        df[col] = df[col].astype("boolean")
+    for col in ["name", "type", "review_score_desc"]:
+        df[col] = df[col].astype("string")
 
     return df.reset_index(drop=True)
