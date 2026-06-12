@@ -12,6 +12,7 @@ safe.
 
 import json
 import os
+from typing import TypedDict
 
 from pipeline.config import settings
 
@@ -82,3 +83,33 @@ def load_manifest() -> dict:
 def save_manifest(manifest: dict) -> None:
     """Persist the manifest atomically (it is rewritten after every batch)."""
     atomic_write_json(settings.fetch_manifest_path, manifest)
+
+
+# Manifest status vocabulary. storage owns the manifest *file format*, so the set
+# of legal status strings lives here; the orchestrator owns the transitions.
+STATUS_PENDING = "pending"          # not started
+STATUS_IN_PROGRESS = "in_progress"  # started, resumable from last_cursor
+STATUS_DONE = "done"                # walk complete
+STATUS_SKIPPED = "skipped"          # identity guard failed (see guard_status)
+STATUS_FAILED = "failed"            # unexpected error
+
+
+class GameRecord(TypedDict):
+    """One game's entry in the fetch manifest.
+
+    This is the documented shape of every value in fetch_manifest.json. storage
+    persists these; the orchestrator builds and transitions them. load/save are
+    typed loosely as plain dict so partial test fixtures stay convenient, but
+    real records always conform to this schema.
+    """
+
+    name: str
+    status: str               # one of the STATUS_* constants above
+    last_cursor: str | None
+    reviews_written: int
+    guard_status: str | None  # ok / mismatch / no_data
+    guard_ratio: float | None
+    actual_name: str | None
+    started_at: str
+    updated_at: str
+    error: str | None
