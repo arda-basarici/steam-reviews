@@ -1,16 +1,21 @@
 # steam-reviews — project-specific ignores only.
-# Universal junk (__pycache__/, *.pyc, .venv/, .DS_Store, editor dirs)
-# is handled by the repo-root .gitignore.
+# Universal junk (__pycache__/, *.pyc, .venv/, .DS_Store, editor dirs) is
+# handled by the repo-root .gitignore.
 
-# Downloaded + derived data: large, reproducible from the pipeline, never committed.
-data/raw/
-data/processed/
+# Ignore downloaded + derived data (large, reproducible, never committed).
+# Use /* (contents) not / (whole dir) so git still descends and the negations
+# below can take effect. Re-include the subdirs before ignoring THEIR contents.
+data/raw/*
+!data/raw/reviews/
+!data/raw/metadata/
+data/raw/reviews/*
+data/raw/metadata/*
+data/processed/*
 
-# Keep the (otherwise-empty) data folders visible in the repo as structure...
-!data/raw/
+# Keep the folder-structure placeholders visible in the repo.
 !data/raw/reviews/.gitkeep
 !data/raw/metadata/.gitkeep
 !data/processed/.gitkeep
 
-# ...but game_list.json is hand-curated (a design artifact), so it IS committed.
+# game_list.json is hand-curated (a design artifact), so it IS committed.
 !data/game_list.json
