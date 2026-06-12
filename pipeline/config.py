@@ -44,6 +44,10 @@ class Settings:
     # Storefront details: used for game metadata AND the identity guard
     # (does this app_id actually resolve to the game we expect?).
     appdetails_endpoint: str = "https://store.steampowered.com/api/appdetails"
+    # Storefront call returns prices in this currency and names in this language,
+    # so they line up with the USD / English values in game_list.json.
+    appdetails_country: str = "us"
+    appdetails_language: str = "english"
 
     # --------------------------------------------------- review query params
     # filter=recent walks the full review set in creation-date order. The
@@ -69,10 +73,26 @@ class Settings:
     # matters more here than the ~20% extra requests.
     num_per_page: int = 80
 
+    # ------------------------------------------------------- identity guard
+    # How similar the store's name must be to the expected game_list name
+    # (after normalization: lowercased, ™/®/© and punctuation stripped) to
+    # accept an app_id. 0.85 tolerates formatting drift while still rejecting a
+    # wholly different game. Lower it if a legitimate game is being false-skipped
+    # (every decision is recorded in the fetch manifest, so misses are visible).
+    identity_match_threshold: float = 0.85
+
     # ------------------------------------------------------------------ caps
-    # Per-game ceiling. Keeps the dataset to ~500k reviews total across 50 games
-    # so iteration stays fast. Games with fewer reviews simply return what exists.
+    # Per-game ceiling for a FULL run. Keeps the dataset ~500k reviews total
+    # across 50 games so iteration stays fast. Smaller games return what exists.
     reviews_per_game_cap: int = 10_000
+
+    # --- sample mode ---------------------------------------------------------
+    # While BUILDING the pipeline we run shallow: all 50 games, ~500 reviews each
+    # (~9 min total), which exercises every edge case (empty/delisted games,
+    # non-English corpora) without the full ~1.5 h fetch. Flip to False for the
+    # one real run at the end. Default True so a full fetch is never accidental.
+    sample_mode: bool = True
+    sample_reviews_per_game: int = 500
 
     # ------------------------------------------------ politeness & reliability
     # Steam's rate limits are undocumented; the accepted approach is to stay
@@ -94,6 +114,16 @@ class Settings:
         "ai-journey-steam-reviews/1.0 "
         "(+https://github.com/arda-basarici/ai-journey)"
     )
+
+    # ------------------------------------------------------- derived (read-only)
+    @property
+    def effective_reviews_cap(self) -> int:
+        """The per-game cap actually in force, picked by sample_mode.
+
+        Derived config, not behaviour: it only *selects* between two settings,
+        so the fetcher reads one value and never repeats the if/else itself.
+        """
+        return self.sample_reviews_per_game if self.sample_mode else self.reviews_per_game_cap
 
 
 # Module-level singleton. Import this everywhere:  from pipeline.config import settings
