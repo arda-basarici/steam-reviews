@@ -72,16 +72,25 @@ def label_bars(ax, fmt="{:.0f}", pad=3, fontsize=10, color=INK) -> None:
 
 
 def within_game_gap(df: pd.DataFrame, group_mask, metric: str,
-                    min_per_side: int = 30, app_col: str = "app_id"):
+                    min_per_side: int = 30, app_col: str = "app_id",
+                    agg: str = "median"):
     """Our signature validation: does an effect hold WITHIN games, not just pooled?
 
     For each game with at least `min_per_side` rows on each side of `group_mask`,
-    compute  metric(mask=False) - metric(mask=True)  (median of `metric`). Returns
-    a Series of per-game gaps (index = app_id). A real effect shows a consistent
-    sign across most games; a between-game artifact does not.
+    compute  agg(metric | mask=False) - agg(metric | mask=True).  Returns a Series
+    of per-game gaps (index = app_id). A real effect shows a consistent sign across
+    most games; a between-game artifact does not.
+
+    `agg` chooses the aggregation:
+      - "mean"   for binary / rate columns (e.g. voted_up) — the gap is then a
+                 difference in PROPORTIONS. Using median on a 0/1 column is wrong:
+                 median(0/1) is just 0 or 1, not the rate.
+      - "median" for skewed continuous columns (e.g. review length, playtime).
 
     `group_mask` is a boolean Series aligned to df (e.g. df["voted_up"]).
     """
+    if agg not in ("mean", "median"):
+        raise ValueError("agg must be 'mean' or 'median'")
     mask = pd.Series(group_mask, index=df.index)
     out = {}
     for app_id, d in df.groupby(app_col):
@@ -89,7 +98,9 @@ def within_game_gap(df: pd.DataFrame, group_mask, metric: str,
         a = d.loc[m, metric].dropna()
         b = d.loc[~m, metric].dropna()
         if len(a) >= min_per_side and len(b) >= min_per_side:
-            out[app_id] = b.median() - a.median()
+            fa = a.mean() if agg == "mean" else a.median()
+            fb = b.mean() if agg == "mean" else b.median()
+            out[app_id] = fb - fa
     return pd.Series(out, name="within_game_gap")
 
 
