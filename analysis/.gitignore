@@ -1,0 +1,6 @@
+# Jupyter checkpoint clutter — never useful to commit
+.ipynb_checkpoints/
+
+# Scratch playground — exploratory fact-checking, not part of the polished report.
+# The numbered chapters (00_*.ipynb ... 05_*.ipynb) ARE committed.
+eda.ipynb
