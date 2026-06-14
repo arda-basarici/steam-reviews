@@ -13,8 +13,9 @@ pandera>=0.30   # declarative DataFrame schemas; >=0.30 supports pandas 3.x
 pytest          # unit tests, run alongside each module
 
 # --- Analysis (added when we build the notebooks) ---
-# jupyter        # notebook environment
-# matplotlib     # plotting
-# seaborn        # statistical charts on top of matplotlib
-# scipy          # statistical tests (e.g. Mann-Whitney U)
-# scikit-learn   # logistic regression, KMeans (Phase 2 light ML)
+jupyter        # notebook environment
+matplotlib     # plotting
+seaborn        # statistical charts on top of matplotlib
+scipy          # statistical tests (e.g. Mann-Whitney U)
+scikit-learn   # logistic regression, KMeans (Phase 2 light ML)
+reportlab       # PDF report generation

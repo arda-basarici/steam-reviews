@@ -10,10 +10,11 @@ flow and assertions at two distinct boundaries.
 - **Cleaner**: transforms raw JSON → tidy tables (no network access)
 - **Validator**: the data contract — asserts invariants before data is promoted
 
-Status: Phase 2, project 2. **Data pipeline complete end-to-end** — fetch → clean
-→ validate → Parquet — all unit-tested and exposed via a CLI (`main.py fetch` /
-`main.py clean`). The first full sample run produced 24,579 cleaned reviews across
-all 50 games. Analysis notebooks are the next stage.
+Status: Phase 2, project 2. **Complete** — pipeline (fetch → clean → validate →
+Parquet), a five-chapter analysis, and a generated PDF report — all unit-tested and
+exposed via a CLI (`main.py fetch` / `main.py clean`). The full fetch produced
+298,553 cleaned reviews across all 50 games; the analysis lives in `analysis/`, the
+deliverable in `steam_review_report.pdf`.
 
 ## Data Flow
 
@@ -31,7 +32,9 @@ game_list.json            (committed, hand-curated — 50 games)
   → validation/            [BUILT: pandera schemas + cross-table checks; hard-stop vs warn]
   → writer.py              [BUILT: atomic Parquet write of the processed tables]
   → data/processed/reviews.parquet + metadata.parquet   (gitignored)
-  → analysis notebooks     [PENDING] read processed only — never touch raw
+  → analysis/*.ipynb         [BUILT: read processed only; within-game validation; shared _style.py]
+  → generate_report.py       [BUILT: regenerates figures, assembles the narrative PDF]
+  → steam_review_report.pdf  (committed — the portfolio deliverable)
 ```
 
 Every arrow goes forward only. Notebooks never reach back to raw. That one rule
@@ -108,8 +111,14 @@ These are project-wide choices that don't belong to any single file.
   identically regardless of the current working directory
 - Paths derive from a module constant, not from sibling fields — sidesteps the
   frozen-dataclass "field can't reference field" issue without `__post_init__`
-- `filter=recent` — walks the full review set in creation-date order; avoids the
-  helpfulness-sort cursor-loop bug and yields temporal ordering for free
+- `filter=recent` — walks the review set in creation-date order; avoids the
+  helpfulness-sort cursor-loop bug, yields temporal ordering for free, and is
+  deterministic/reproducible (relevance re-ranks over time and biases toward
+  already-upvoted reviews, which would distort sentiment analysis). **Analytical
+  cost**: at the 10k/game cap this captures each game's _recent window_, not its
+  full history — so review-level findings are sound but historical questions
+  (review-bombing, long-run trends) are out of range. Reversible by config
+  (`review_filter`) for a future full-history crawl; this analysis didn't need it.
 - `purchase_type=all` — the API default `steam` silently excludes key-activated
   owners, a real sampling bias
 - `language=all` — some games (e.g. Overwatch 2) are majority non-English
@@ -389,20 +398,113 @@ These are project-wide choices that don't belong to any single file.
   anywhere); Parquet round-trip tests (incl. the `genres` list column surviving)
   require pyarrow
 
-## Data Facts (first full sample run)
+## The Analysis Layer
 
-What the real cleaned data actually is, recorded for the analysis stage:
+The pipeline produces clean tables; the analysis turns them into an argument. It
+lives in `analysis/` as six numbered notebooks (a methodology chapter, four finding
+chapters, and a limitations chapter) plus a shared helper module, and it feeds a
+standalone report generator at the project root.
 
-- **24,579 reviews across all 50 games**, 23 columns; **50 games**, 21 columns of
-  metadata. (Just under the 50×500 = 25,000 ceiling: dedup removed resume
-  duplicates and a few small games have <500 total reviews, e.g. Cuphead at 79.)
-- **The corpus is multilingual — under half is English**: english ~11,700 (~48%),
-  then russian ~3,200, schinese ~2,700, spanish ~1,400, brazilian ~1,200, and a
-  long tail. Validates `language=all` and `ensure_ascii=False`; makes the Phase 4
-  NLP genuinely multilingual.
-- **The contract passed clean** on the real data — zero hard failures and zero
-  warnings: dedup held (`recommendationid` unique), every review's `app_id` matched
-  a metadata row, and Steam's sentiment totals were self-consistent.
+```
+analysis/_style.py          shared visual identity + the within-game test
+analysis/00_methodology.ipynb   corpus, the multilingual finding, the method itself
+analysis/01..04_*.ipynb         the four findings, one per chapter
+analysis/05_what_we_didnt_use   the discarded hypotheses + data limits
+generate_report.py          regenerates print-quality figures, assembles the PDF
+report_charts.py            the figures, isolated from the prose/layout
+```
+
+The same forward-only rule holds: notebooks read `data/processed/` and never reach
+back to raw.
+
+### The within-game test (the signature method)
+
+The core analytical decision, and the spine of every finding: **a pattern is
+computed inside each game first, then aggregated across games — never pooled.**
+Pooling review-level data across 50 unequally-sized games invites
+confounding-by-game (Simpson's paradox): a pattern can appear in the pile that
+exists in no individual game, manufactured purely by _which_ games dominate the
+sample. The within-game test is the guard against it — an effect must reproduce
+title by title before it is believed.
+
+This is not decoration. The clearest example: reviews written during Early Access
+recommend at 44.8% pooled, against an 87% baseline — a dramatic 42-point "finding."
+It evaporates within-game (only one game has enough reviews both during and after
+EA to compare, and there the gap reverses): it was an artifact of _which_ games had
+troubled EA periods, not an effect of reviewing early. The four reported findings
+all survived this same test (holding in 43–47 of the ~48 qualifying games each); EA,
+price, and language did not. The method is what separates the two groups.
+
+### Analysis Decisions Log
+
+- **Within-game over pooled, everywhere** — the signature method above. Implemented
+  once in `_style.within_game_gap(...)` so every chapter computes it identically,
+  rather than copy-pasted per notebook
+- **`agg="mean"` for binary, `agg="median"` for continuous** — the within-game
+  helper takes the aggregation explicitly. Median of a 0/1 column (e.g. `voted_up`)
+  is meaningless (it returns 0 or 1, not a rate); mean is the rate. Skewed
+  continuous columns (review length, playtime) use median, which resists their fat
+  tails. A single wrong default here silently corrupts every binary within-game test
+- **Minimum 30 reviews per side** — a within-game gap from a handful of reviews is
+  noise. Each test includes only games with ≥30 on both sides of its split, which
+  leaves 46–48 of the 50 games qualifying depending on the split. Stated in the
+  report so the shifting denominators aren't mistaken for lost data
+- **scikit-learn used only where it earns its place** — a logistic regression in the
+  refund chapter does real work (multivariate confirmation that playtime predicts
+  sentiment with game/length/votes controlled, via game fixed effects + log-scaled
+  skewed features, interpreted as odds ratios against a baseline, not as a
+  predictor). KMeans and any text modeling were _deliberately not used_ — there is no
+  honest clustering question here, and review _text_ is explicitly Phase 4's job.
+  Restraint is the signal: the right tool for the question, not every tool available
+- **Medians and distribution-free tests over means** — playtime and length are
+  heavily right-tailed (playtime max ≈ 26,000 hours). Means mislead; the analysis
+  uses medians, Mann-Whitney U (with effect size reported alongside the p-value,
+  since at N≈300k every difference is "significant"), and log transforms where a
+  model needs them
+- **`weighted_vote_score` abandoned; `num_games_owned==0` is a privacy default** —
+  two variables that looked usable but weren't. `weighted_vote_score` sits at its
+  default 0.5 for ~75% of reviews (hollow). `num_games_owned` is 0 for 54% of
+  reviewers — Steam's private-profile default, not a real empty library — so the
+  veteran chapter restricts to the 46% public-profile subset and says so. Catching
+  hollow variables before building on them is what the playground (`eda.ipynb`,
+  not committed) is for
+- **"What we didn't use" is a deliberate chapter** — the discarded hypotheses (EA
+  artifact, un-baselineable review-bomb, fragile price signal, critics-agree-with-
+  players, language/game confound, free-copy null) are documented, not hidden. What
+  an analysis refuses to claim is part of its credibility
+- **The report is its own writing, not exported notebooks** — `generate_report.py`
+  is a purpose-built narrative document with a single through-line (when → whether →
+  how → who), not a `nbconvert` dump. Charts are regenerated fresh at print
+  resolution from the processed data, reusing the notebooks' palette so the report
+  and notebooks read as one body of work. `report_charts.py` keeps the figures
+  separate from the prose/layout, mirroring the pipeline's "I/O vs transform vs
+  assert" separation one level up
+- **Single-accent visual identity** (`_style.py`) — one crimson accent marks "the
+  finding," everything else in greys ("the context"). The colour follows the
+  argument, so each chart's point is legible before the caption is read. Chosen
+  deliberately _not_ to match the previous project's palette — a portfolio should
+  show growth, not brand consistency
+
+## Data Facts (full fetch)
+
+What the real cleaned data is, after the full `fetch --full` + `clean` run that the
+analysis and report are built on:
+
+- **298,553 reviews across all 50 games**, 23 columns; **50 games**, 21 columns of
+  metadata. Reviews per game are unequal _by design_: popular titles hit the
+  10,000-review cap (e.g. Baldur's Gate 3), niche titles contribute their full
+  recent history (e.g. Mount & Blade II: Bannerlord, ~1,800). This is precisely why
+  the analysis works within-game rather than pooling — popular titles would
+  otherwise dominate any aggregate.
+- **The corpus is multilingual — under half is English**: english ~45% (~136k),
+  then russian ~40k, schinese ~35k, spanish ~19k, brazilian ~17k, and a long tail
+  across **30 languages**. Validates `language=all` and `ensure_ascii=False`; makes
+  the Phase 4 NLP genuinely multilingual.
+- **The contract passed clean** on the real data — dedup held
+  (`recommendationid` unique), every review's `app_id` matched a metadata row, and
+  Steam's sentiment totals were self-consistent.
+- **Overall recommend rate 84.8%** — the headline number the report exists to take
+  apart.
 
 ## Known Bugs
 
