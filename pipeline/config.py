@@ -111,8 +111,8 @@ class Settings:
     # throttled; this identifies the project and a contact URL. If Steam ever
     # rejects it, fall back to a plain browser string.
     user_agent: str = (
-        "ai-journey-steam-reviews/1.0 "
-        "(+https://github.com/arda-basarici/ai-journey)"
+        "steam-reviews/1.0 "
+        "(+https://github.com/arda-basarici/steam-reviews)"
     )
 
     # ------------------------------------------------------- derived (read-only)
