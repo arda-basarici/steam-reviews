@@ -159,7 +159,7 @@ def build(reviews, meta, tmpdir):
     SP(16)
     story.append(HRule(PW))
     SP(6)
-    P('github.com/arda-basarici/ai-journey &nbsp;·&nbsp; Data from Steam\'s public review API', "foot")
+    P('github.com/arda-basarici/steam-reviews &nbsp;·&nbsp; Data from Steam\'s public review API', "foot")
     story.append(PageBreak())
 
     # ============ EXECUTIVE SUMMARY ============
@@ -347,7 +347,7 @@ def build(reviews, meta, tmpdir):
     story.append(Paragraph("What the score doesn't tell you, this report found in the structure around it. The rest is in the words.", S["thesis"]))
     SP(10)
     story.append(HRule(PW)); SP(6)
-    P("Methods, source code, and the full analysis notebooks: github.com/arda-basarici/ai-journey &nbsp;·&nbsp; "
+    P("Methods, source code, and the full analysis notebooks: github.com/arda-basarici/steam-reviews &nbsp;·&nbsp; "
       "Findings are validated within individual games; all figures regenerated from the processed dataset.", "foot")
 
     return story
