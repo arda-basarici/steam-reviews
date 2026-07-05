@@ -1,6 +1,11 @@
-# steam-reviews — project-specific ignores only.
-# Universal junk (__pycache__/, *.pyc, .venv/, .DS_Store, editor dirs) is
-# handled by the repo-root .gitignore.
+# Universal junk (inherited from the monorepo root .gitignore at the repo split).
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+*.egg-info/
+.DS_Store
 
 # Ignore downloaded + derived data (large, reproducible, never committed).
 # Use /* (contents) not / (whole dir) so git still descends and the negations
