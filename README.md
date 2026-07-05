@@ -60,7 +60,8 @@ steam-reviews/
 ├── generate_report.py       # builds the PDF report from processed data
 ├── report_charts.py         # print-quality figures for the report
 ├── requirements.txt
-├── ARCHITECTURE.md          # design decisions + engineering rationale
+├── DESIGN.md                # the decisions and why
+├── ARCHITECTURE.md          # the structure and why that shape
 │
 ├── pipeline/                # the data pipeline
 │   ├── config.py            #   single source of truth for settings
@@ -83,7 +84,7 @@ steam-reviews/
 │   ├── 04_the_veteran_is_harsher.ipynb
 │   └── 05_what_we_didnt_use.ipynb
 │
-├── tests/                   # ~71 tests across the pipeline
+├── tests/                   # 71 tests across the pipeline
 ├── data/
 │   ├── game_list.json       #   curated input (committed)
 │   ├── raw/                 #   fetched JSONL/JSON (git-ignored)
@@ -98,14 +99,12 @@ steam-reviews/
 
 The signature discipline here is the **within-game test**: every finding is computed inside each game first, then aggregated, so a pattern has to reproduce title by title before it's believed. This is what kills between-game artifacts — an "Early Access reviews are harsh" effect that looked dramatic pooled (44.8% vs 87%) evaporated under this test, while the four reported findings survived it.
 
-One scope choice shapes what the data can say: reviews were collected **most-recent-first** (newest reviews, up to 10,000 per game) for reliable, reproducible, time-ordered pagination. This means the dataset captures each game's _recent window_ rather than its full history — which is why historical questions (review-bombing, long-run trends) are out of range. It's a one-line configuration change to collect full histories instead. See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full reasoning.
+One scope choice shapes what the data can say: reviews were collected **most-recent-first** (newest reviews, up to 10,000 per game) for reliable, reproducible, time-ordered pagination. This means the dataset captures each game's _recent window_ rather than its full history — which is why historical questions (review-bombing, long-run trends) are out of range. It's a one-line configuration change to collect full histories instead. See [`DESIGN.md`](DESIGN.md) for the full reasoning.
 
-The analysis is observational and rests on 50 games: review-level findings (hundreds of thousands of rows) are strong; game-level observations are treated as suggestive.
+The analysis is observational and rests on 50 games: review-level findings (hundreds of thousands of rows) are strong; game-level observations are treated as suggestive. The within-game discipline itself became a recurring spine of the portfolio — within-group analysis in [pathfinding-ml](https://github.com/arda-basarici/pathfinding-ml), regime-conditioned evaluation in [blackjack-rl](https://github.com/arda-basarici/blackjack-rl).
 
 ---
 
-## Part of AI Journey
+## Deeper
 
-A structured learning arc from Python foundations toward AI engineering — every project real, complete, and publicly documented. This is **Phase 2 (Data & ML Engineering)**; the next phase turns from the _structure_ of reviews to their _text_.
-
-→ [github.com/arda-basarici/ai-journey](https://github.com/arda-basarici/ai-journey)
+[DESIGN.md](DESIGN.md) — the decisions and why · [ARCHITECTURE.md](ARCHITECTURE.md) — the structure, the seams, and the identity guard that paid for itself · [steam_review_report.pdf](steam_review_report.pdf) — the full report.

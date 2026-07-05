@@ -17,5 +17,5 @@ jupyter        # notebook environment
 matplotlib     # plotting
 seaborn        # statistical charts on top of matplotlib
 scipy          # statistical tests (e.g. Mann-Whitney U)
-scikit-learn   # logistic regression, KMeans (Phase 2 light ML)
+scikit-learn   # the refund chapter's logistic regression (the one deliberate model)
 reportlab       # PDF report generation

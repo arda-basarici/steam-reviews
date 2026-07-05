@@ -6,8 +6,8 @@ the transform logic here is testable against tiny in-memory frames.
 
 What "clean" means here: flat columns (nested `author` expanded), real datetimes,
 honest dtypes, deduplicated, review text preserved byte-for-byte. It is
-deliberately model-agnostic — turning this into PyTorch features is a Phase 3
-concern that reads this output, not something baked in here.
+deliberately model-agnostic — turning this into model features is a downstream
+consumer's concern that reads this output, not something baked in here.
 
 Column policy (see KEEP_* below): we keep generously — every field with any
 plausible analytic value to anyone, not just our five questions — and drop only
