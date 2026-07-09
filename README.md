@@ -108,3 +108,11 @@ The analysis is observational and rests on 50 games: review-level findings (hund
 ## Deeper
 
 [DESIGN.md](DESIGN.md) — the decisions and why · [ARCHITECTURE.md](ARCHITECTURE.md) — the structure, the seams, and the identity guard that paid for itself · [steam_review_report.pdf](steam_review_report.pdf) — the full report.
+
+## License
+
+Code is released under the [MIT License](LICENSE). The report
+([steam_review_report.pdf](steam_review_report.pdf)) is © 2026 Arda Başarıcı, all rights
+reserved — included for reading, not licensed for reuse. The `data/` snapshot consists of
+Steam user reviews: that content belongs to its respective authors and Valve, is included
+solely for reproducibility, and is not covered by the license.
